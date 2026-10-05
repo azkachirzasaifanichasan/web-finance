@@ -7,7 +7,7 @@
     <div class="mb-7">
         <span class="inline-block mb-2 text-blue-600 text-[10px] font-extrabold tracking-[0.14em] uppercase">CLASS ADMINISTRATION</span>
         <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Class Finance</h1>
-        <p class="text-slate-500 mt-1 text-sm">Keep every class transaction organized in one place.</p>
+        <p class="text-slate-500 mt-1 text-sm">Keep every class transaction organized in one place, old version.</p>
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         <a href="{{ url('/data-kas') }}" class="bg-white border border-slate-200 rounded-xl p-5 sm:p-7 text-left no-underline text-slate-900 hover:border-blue-600 hover:bg-slate-50 hover:-translate-y-1 hover:shadow-[0_12px_24px_-8px_rgba(37,99,235,0.12)] transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.02)] block">
