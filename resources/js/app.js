@@ -1,6 +1,3 @@
-/* ==========================================
-   1. MODUL UI & TOAST SYSTEM (GLOBAL)
-   ========================================== */
 window.showToast = function (msg, type = 'success') {
     const existing = document.getElementById('app-toast');
     if (existing) existing.remove();
@@ -62,13 +59,9 @@ function closeConfirm(toast) {
     }
 }
 
-/* ==========================================
-   2. INITIALIZER (Satu Listener untuk Semua Halaman)
-   ========================================== */
 document.addEventListener('DOMContentLoaded', () => {
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-    // --- A. LOGIC DATA KAS SISWA ---
     if (document.getElementById('thead-row')) {
         const fixedColumns = ['nis', 'absen', 'nama'];
         let rawData = [];
@@ -180,7 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Global Handlers untuk Data Kas
         window.toggleDropdown = (event, key) => {
             event.stopPropagation();
             openDropdown = openDropdown === key ? null : key;
@@ -250,11 +242,201 @@ document.addEventListener('DOMContentLoaded', () => {
             loadDataKas();
         };
 
-        // Jalankan awal
         loadDataKas();
     }
 
-    // --- B. LOGIC PENGELUARAN (Trik Kalkulasi Total) ---
+    // --- LOGIC INCOME ---
+    if (document.getElementById('add-nominal')) {
+        let incomes = [];
+        let editingId = null;
+
+        const fmtRp = (n) => 'Rp ' + Number(n).toLocaleString('id-ID');
+
+        async function loadIncomes() {
+            const res = await fetch('/api/incomes');
+            incomes = await res.json();
+            renderIncomes();
+        }
+
+        function renderIncomes() {
+            const tbody = document.getElementById('tbody');
+            tbody.innerHTML = '';
+            incomes.forEach((row, i) => {
+                tbody.innerHTML += `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-center text-xs sm:text-sm text-slate-900">${row.id}</td>
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-center text-xs sm:text-sm text-slate-900">${row.income_date}</td>
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-center text-xs sm:text-sm text-slate-900 font-semibold">${fmtRp(row.amount)}</td>
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-xs sm:text-sm text-slate-900">${row.description || '-'}</td>
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-center text-xs">
+                        <button class="px-3 py-1 bg-amber-100 text-amber-700 rounded-md font-semibold hover:bg-amber-200" onclick="window.editIncome(${row.id})">Edit</button>
+                        <button class="px-3 py-1 bg-red-100 text-red-600 rounded-md font-semibold hover:bg-red-200" onclick="window.deleteIncome(${row.id})">Delete</button>
+                    </td>
+                </tr>`;
+            });
+            const idInput = document.getElementById('add-id');
+            if (idInput && !editingId) {
+                const maxId = incomes.reduce((m, r) => Math.max(m, r.id), 0);
+                idInput.value = maxId + 1;
+            }
+        }
+
+        window.editIncome = (id) => {
+            const row = incomes.find(r => r.id === id);
+            if (!row) return;
+            editingId = id;
+            document.getElementById('add-id').value = row.id;
+            document.getElementById('add-tanggal').value = row.income_date;
+            document.getElementById('add-nominal').value = row.amount;
+            document.getElementById('add-keterangan').value = row.description || '';
+            document.getElementById('add-form').classList.remove('hidden');
+        };
+
+        window.deleteIncome = (id) => {
+            window.showConfirm('Hapus data pemasukan ini?', async () => {
+                await fetch(`/api/incomes/${id}`, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrfToken } });
+                window.showToast('Data berhasil dihapus');
+                loadIncomes();
+            });
+        };
+
+        window.addData = async () => {
+            const income_date = document.getElementById('add-tanggal').value;
+            const amount = document.getElementById('add-nominal').value;
+            const description = document.getElementById('add-keterangan').value;
+
+            let valid = true;
+            document.getElementById('err-tanggal').textContent = '';
+            document.getElementById('err-nominal').textContent = '';
+            if (!income_date) { document.getElementById('err-tanggal').textContent = 'Tanggal wajib diisi'; valid = false; }
+            if (!amount || amount < 1) { document.getElementById('err-nominal').textContent = 'Nominal wajib diisi'; valid = false; }
+            if (!valid) return;
+
+            const url = editingId ? `/api/incomes/${editingId}` : '/api/incomes';
+            const method = editingId ? 'PUT' : 'POST';
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                body: JSON.stringify({ income_date, amount, description })
+            });
+
+            if (res.ok) {
+                window.showToast(editingId ? 'Data berhasil diupdate!' : 'Data berhasil ditambahkan!');
+                editingId = null;
+                document.getElementById('add-tanggal').value = '';
+                document.getElementById('add-nominal').value = '';
+                document.getElementById('add-keterangan').value = '';
+                document.getElementById('add-form').classList.add('hidden');
+                loadIncomes();
+            } else {
+                window.showToast('Gagal menyimpan data', 'error');
+            }
+        };
+
+        loadIncomes();
+    }
+
+    // --- LOGIC EXPENSE ---
+    if (document.getElementById('add-item')) {
+        let expenses = [];
+        let editingId = null;
+
+        const fmtRp = (n) => 'Rp ' + Number(n).toLocaleString('id-ID');
+
+        async function loadExpenses() {
+            const res = await fetch('/api/expenses');
+            expenses = await res.json();
+            renderExpenses();
+        }
+
+        function renderExpenses() {
+            const tbody = document.getElementById('tbody');
+            tbody.innerHTML = '';
+            expenses.forEach((row, i) => {
+                tbody.innerHTML += `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-center text-xs sm:text-sm text-slate-900">${i + 1}</td>
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-center text-xs sm:text-sm text-slate-900">${row.id}</td>
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-center text-xs sm:text-sm text-slate-900">${row.expense_date}</td>
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-xs sm:text-sm text-slate-900 font-semibold">${row.item}</td>
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-center text-xs sm:text-sm text-slate-900">${fmtRp(row.unit_price)}</td>
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-center text-xs sm:text-sm text-slate-900">${row.quantity}</td>
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-center text-xs sm:text-sm text-slate-900 font-semibold">${fmtRp(row.total_price)}</td>
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-xs sm:text-sm text-slate-900">${row.description || '-'}</td>
+                    <td class="px-3.5 py-3 border-b border-slate-100 text-center text-xs">
+                        <button class="px-3 py-1 bg-amber-100 text-amber-700 rounded-md font-semibold hover:bg-amber-200" onclick="window.editExpense(${row.id})">Edit</button>
+                        <button class="px-3 py-1 bg-red-100 text-red-600 rounded-md font-semibold hover:bg-red-200" onclick="window.deleteExpense(${row.id})">Delete</button>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        window.editExpense = (id) => {
+            const row = expenses.find(r => r.id === id);
+            if (!row) return;
+            editingId = id;
+            document.getElementById('add-tanggal').value = row.expense_date;
+            document.getElementById('add-item').value = row.item;
+            document.getElementById('add-harga').value = row.unit_price;
+            document.getElementById('add-jumlah').value = row.quantity;
+            document.getElementById('add-keterangan').value = row.description || '';
+            window.calculateTotal?.();
+            document.getElementById('add-form').classList.remove('hidden');
+        };
+
+        window.deleteExpense = (id) => {
+            window.showConfirm('Hapus data pengeluaran ini?', async () => {
+                await fetch(`/api/expenses/${id}`, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrfToken } });
+                window.showToast('Data berhasil dihapus');
+                loadExpenses();
+            });
+        };
+
+        window.addData = async () => {
+            const expense_date = document.getElementById('add-tanggal').value;
+            const item = document.getElementById('add-item').value;
+            const unit_price = document.getElementById('add-harga').value;
+            const quantity = document.getElementById('add-jumlah').value;
+            const description = document.getElementById('add-keterangan').value;
+
+            let valid = true;
+            document.getElementById('err-tanggal').textContent = '';
+            document.getElementById('err-item').textContent = '';
+            document.getElementById('err-harga').textContent = '';
+            document.getElementById('err-jumlah').textContent = '';
+            if (!expense_date) { document.getElementById('err-tanggal').textContent = 'Tanggal wajib diisi'; valid = false; }
+            if (!item) { document.getElementById('err-item').textContent = 'Item wajib diisi'; valid = false; }
+            if (!unit_price || unit_price < 1) { document.getElementById('err-harga').textContent = 'Harga wajib diisi'; valid = false; }
+            if (!quantity || quantity < 1) { document.getElementById('err-jumlah').textContent = 'Jumlah wajib diisi'; valid = false; }
+            if (!valid) return;
+
+            const url = editingId ? `/api/expenses/${editingId}` : '/api/expenses';
+            const method = editingId ? 'PUT' : 'POST';
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                body: JSON.stringify({ expense_date, item, unit_price, quantity, description })
+            });
+
+            if (res.ok) {
+                window.showToast(editingId ? 'Data berhasil diupdate!' : 'Data berhasil ditambahkan!');
+                editingId = null;
+                document.getElementById('add-tanggal').value = '';
+                document.getElementById('add-item').value = '';
+                document.getElementById('add-harga').value = '';
+                document.getElementById('add-jumlah').value = '';
+                document.getElementById('add-keterangan').value = '';
+                window.calculateTotal?.();
+                document.getElementById('add-form').classList.add('hidden');
+                loadExpenses();
+            } else {
+                window.showToast('Gagal menyimpan data', 'error');
+            }
+        };
+
+        loadExpenses();
+    }
+
     if (document.getElementById('add-harga') && document.getElementById('add-jumlah')) {
         window.calculateTotal = () => {
             const harga = parseFloat(document.getElementById('add-harga')?.value) || 0;
@@ -267,7 +449,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- C. HANDLER TOGGLE FORM (PEMASUKAN & PENGELUARAN) ---
     window.showAddForm = () => {
         document.getElementById('add-form')?.classList.remove('hidden');
     };

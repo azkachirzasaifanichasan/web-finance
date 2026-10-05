@@ -2,8 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/welcome', function () {
-    return view('welcome');
+Route::get('/easteregg', function () {
+    return view('easteregg');
 });
 
 Route::get('/', function () {
